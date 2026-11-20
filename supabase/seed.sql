@@ -1,0 +1,15 @@
+-- Optional demo seed: create demo listings only after a profile exists.
+-- Replace the UUID below with an existing profiles.id.
+-- insert into public.properties (
+--   agent_id, title, slug, transaction_type, property_type, price,
+--   land_area, building_area, bedrooms, bathrooms, city_name, province_name,
+--   cover_image_url, status, published_at
+-- ) values (
+--   'YOUR_PROFILE_UUID',
+--   'Rumah Modern Minimalis Surabaya Barat',
+--   'rumah-modern-minimalis-surabaya-barat-demo',
+--   'sale', 'house', 1250000000,
+--   120, 90, 3, 2, 'Surabaya', 'Jawa Timur',
+--   'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200',
+--   'published', now()
+-- );

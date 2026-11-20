@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7faf8;
+  --foreground: #14231d;
+  --emerald: #087a55;
+  --emerald-dark: #075b42;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { background: var(--background); color: var(--foreground); margin: 0; }
+button, input, select { font: inherit; }
+::selection { background: #b8ead6; color: #064b37; }
