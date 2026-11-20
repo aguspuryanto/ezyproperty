@@ -6,8 +6,12 @@ import type { Property } from "@/lib/api";
 const fallback = "https://images.unsplash.com/photo-1600597203089-9f7e9a7f1c5d?w=900&q=80";
 
 function formatPrice(price: number, transaction: string) {
-  const formatted = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(price);
-  return `Rp${formatted}${transaction === "rent" ? " / tahun" : ""}`;
+  // Gunakan formatter deterministik tanpa locale agar tidak terjadi
+  // hydration mismatch antara Node.js server dan browser.
+  const parts = Math.round(price).toString().split("").reverse();
+  const grouped = parts.reduce((acc, digit, i) =>
+    i > 0 && i % 3 === 0 ? digit + "." + acc : digit + acc, "");
+  return `Rp\u00a0${grouped}${transaction === "rent" ? " / tahun" : ""}`;
 }
 
 export function PropertyCard({ property }: { property: Property }) {

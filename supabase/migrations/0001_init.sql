@@ -1,12 +1,24 @@
--- EzyProperty MVP schema
+-- EzyProperty MVP schema (idempotent: safe to re-run on a partially-initialized database)
 create extension if not exists pgcrypto;
 
-create type public.user_role as enum ('agent', 'admin');
-create type public.property_status as enum ('draft', 'pending', 'published', 'rejected', 'sold', 'rented', 'archived');
-create type public.transaction_type as enum ('sale', 'rent');
-create type public.property_type as enum ('house', 'apartment', 'land', 'shop', 'warehouse', 'villa', 'other');
+do $$ begin
+  create type public.user_role as enum ('agent', 'admin');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type public.property_status as enum ('draft', 'pending', 'published', 'rejected', 'sold', 'rented', 'archived');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type public.transaction_type as enum ('sale', 'rent');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type public.property_type as enum ('house', 'apartment', 'land', 'shop', 'warehouse', 'villa', 'other');
+exception when duplicate_object then null;
+end $$;
 
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null default '',
   email text,
@@ -20,7 +32,7 @@ create table public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create table public.properties (
+create table if not exists public.properties (
   id uuid primary key default gen_random_uuid(),
   agent_id uuid not null references public.profiles(id) on delete cascade,
   title varchar(180) not null,
@@ -56,7 +68,7 @@ create table public.properties (
   ) stored
 );
 
-create table public.property_images (
+create table if not exists public.property_images (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   image_url text not null,
@@ -65,7 +77,7 @@ create table public.property_images (
   created_at timestamptz not null default now()
 );
 
-create table public.leads (
+create table if not exists public.leads (
   id uuid primary key default gen_random_uuid(),
   property_id uuid not null references public.properties(id) on delete cascade,
   agent_id uuid not null references public.profiles(id) on delete cascade,
@@ -77,21 +89,21 @@ create table public.leads (
   created_at timestamptz not null default now()
 );
 
-create table public.property_favorites (
+create table if not exists public.property_favorites (
   user_id uuid not null references public.profiles(id) on delete cascade,
   property_id uuid not null references public.properties(id) on delete cascade,
   created_at timestamptz not null default now(),
   primary key (user_id, property_id)
 );
 
-create index properties_status_published_idx on public.properties(status, published_at desc);
-create index properties_price_idx on public.properties(price);
-create index properties_location_idx on public.properties(city_name, province_name);
-create index properties_type_transaction_idx on public.properties(property_type, transaction_type);
-create index properties_agent_idx on public.properties(agent_id, created_at desc);
-create index properties_search_idx on public.properties using gin(search_vector);
-create index property_images_property_idx on public.property_images(property_id, sort_order);
-create index leads_agent_idx on public.leads(agent_id, created_at desc);
+create index if not exists properties_status_published_idx on public.properties(status, published_at desc);
+create index if not exists properties_price_idx on public.properties(price);
+create index if not exists properties_location_idx on public.properties(city_name, province_name);
+create index if not exists properties_type_transaction_idx on public.properties(property_type, transaction_type);
+create index if not exists properties_agent_idx on public.properties(agent_id, created_at desc);
+create index if not exists properties_search_idx on public.properties using gin(search_vector);
+create index if not exists property_images_property_idx on public.property_images(property_id, sort_order);
+create index if not exists leads_agent_idx on public.leads(agent_id, created_at desc);
 
 -- Create profile automatically for every auth user. Role is constrained to agent on public signup.
 create or replace function public.handle_new_user()
@@ -112,17 +124,19 @@ begin
 end;
 $$;
 
-create trigger on_auth_user_created
-after insert on auth.users
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
 for each row execute procedure public.handle_new_user();
 
 create or replace function public.set_updated_at()
 returns trigger language plpgsql
 as $$ begin new.updated_at = now(); return new; end; $$;
 
+drop trigger if exists profiles_updated_at on public.profiles;
 create trigger profiles_updated_at before update on public.profiles
 for each row execute procedure public.set_updated_at();
 
+drop trigger if exists properties_updated_at on public.properties;
 create trigger properties_updated_at before update on public.properties
 for each row execute procedure public.set_updated_at();
 
@@ -134,8 +148,10 @@ alter table public.property_favorites enable row level security;
 
 -- A user can read their own profile only. Public agent fields are exposed
 -- by the API through an explicit column allow-list.
+drop policy if exists "Users can read own profile" on public.profiles;
 create policy "Users can read own profile" on public.profiles
 for select using (auth.uid() = id);
+drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile" on public.profiles
 for update using (auth.uid() = id) with check (auth.uid() = id);
 
@@ -144,30 +160,45 @@ revoke update on public.profiles from authenticated;
 grant update (full_name, phone, whatsapp, avatar_url, bio, agency_name)
 on public.profiles to authenticated;
 
+drop policy if exists "Public can read published properties" on public.properties;
 create policy "Public can read published properties" on public.properties
 for select using (status = 'published' or auth.uid() = agent_id);
+drop policy if exists "Agents can create own properties" on public.properties;
 create policy "Agents can create own properties" on public.properties
 for insert with check (auth.uid() = agent_id);
+drop policy if exists "Agents can update own properties" on public.properties;
 create policy "Agents can update own properties" on public.properties
 for update using (auth.uid() = agent_id) with check (auth.uid() = agent_id);
+drop policy if exists "Agents can delete own draft properties" on public.properties;
 create policy "Agents can delete own draft properties" on public.properties
 for delete using (auth.uid() = agent_id and status in ('draft','rejected'));
 
+drop policy if exists "Public can read images of visible properties" on public.property_images;
 create policy "Public can read images of visible properties" on public.property_images
 for select using (exists (
   select 1 from public.properties p where p.id = property_id
   and (p.status = 'published' or p.agent_id = auth.uid())
 ));
+drop policy if exists "Agents manage images of own properties" on public.property_images;
 create policy "Agents manage images of own properties" on public.property_images
 for all using (exists (select 1 from public.properties p where p.id = property_id and p.agent_id = auth.uid()))
 with check (exists (select 1 from public.properties p where p.id = property_id and p.agent_id = auth.uid()));
 
+drop policy if exists "Agents can read own leads" on public.leads;
 create policy "Agents can read own leads" on public.leads
 for select using (auth.uid() = agent_id);
+drop policy if exists "Agents can update own leads" on public.leads;
 create policy "Agents can update own leads" on public.leads
 for update using (auth.uid() = agent_id) with check (auth.uid() = agent_id);
 
+drop policy if exists "Users manage own favorites" on public.property_favorites;
 create policy "Users manage own favorites" on public.property_favorites
 for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Public lead creation should go through the API, not direct anonymous inserts.
+
+-- Backfill profiles for auth users created before the trigger existed.
+insert into public.profiles (id, full_name, email, role)
+select u.id, coalesce(u.raw_user_meta_data ->> 'full_name', ''), u.email, 'agent'
+from auth.users u
+on conflict (id) do nothing;
