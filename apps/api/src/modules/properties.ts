@@ -6,6 +6,11 @@ import { requireAuth } from "../middleware/auth.js";
 
 const properties = new Hono();
 
+// Statuses visible to the public. "archived" = expired listing (shown with a badge).
+// Must match the RLS policy in supabase/migrations/0002_public_archived_listings.sql.
+const PUBLIC_STATUSES = ["published", "archived"] as const;
+const STATUS_FILTER = { all: PUBLIC_STATUSES, active: ["published"], expired: ["archived"] } as const;
+
 const querySchema = z.object({
   q: z.string().trim().optional(),
   transaction: z.enum(["sale", "rent"]).optional(),
@@ -14,6 +19,7 @@ const querySchema = z.object({
   minPrice: z.coerce.number().nonnegative().optional(),
   maxPrice: z.coerce.number().nonnegative().optional(),
   bedrooms: z.coerce.number().int().min(1).optional(),
+  status: z.enum(["all", "active", "expired"]).default("all"),
   limit: z.coerce.number().int().min(1).max(48).default(12),
   page: z.coerce.number().int().min(1).default(1)
 });
@@ -22,8 +28,10 @@ properties.get("/", zValidator("query", querySchema), async (c) => {
   const f = c.req.valid("query");
   const from = (f.page - 1) * f.limit;
   let query = publicSupabase.from("properties")
-    .select("id,title,slug,price,transaction_type,property_type,land_area,building_area,bedrooms,bathrooms,city_name,province_name,cover_image_url,created_at", { count: "exact" })
-    .eq("status", "published")
+    .select("id,title,slug,price,transaction_type,property_type,land_area,building_area,bedrooms,bathrooms,city_name,province_name,cover_image_url,status,created_at", { count: "exact" })
+    .in("status", [...STATUS_FILTER[f.status]])
+    // Enum order puts "published" before "archived": active listings first.
+    .order("status", { ascending: true })
     .order("published_at", { ascending: false })
     .range(from, from + f.limit - 1);
 
@@ -53,12 +61,12 @@ properties.get("/", zValidator("query", querySchema), async (c) => {
   });
 });
 
-// Cities that have published listings, with counts (for the search filter).
+// Cities that have public listings, with counts (for the search filter).
 // Must be registered before "/:slug".
 properties.get("/cities", async (c) => {
   const { data, error } = await publicSupabase.from("properties")
     .select("city_name")
-    .eq("status", "published")
+    .in("status", [...PUBLIC_STATUSES])
     .limit(5000);
   if (error) return c.json({ success: false, error: error.message }, 500);
 
@@ -77,7 +85,7 @@ properties.get("/:slug", async (c) => {
   const { data, error } = await publicSupabase.from("properties")
     .select("*, property_images(id,image_url,alt_text,sort_order)")
     .eq("slug", c.req.param("slug"))
-    .eq("status", "published")
+    .in("status", [...PUBLIC_STATUSES])
     .maybeSingle();
 
   if (error) return c.json({ success: false, error: error.message }, 500);

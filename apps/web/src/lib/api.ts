@@ -14,6 +14,8 @@ export type Property = {
   city_name: string;
   province_name: string;
   cover_image_url: string | null;
+  /** "published" (aktif) or "archived" (kadaluarsa). */
+  status?: string;
 };
 
 export type Pagination = { page: number; limit: number; total: number; totalPages: number };

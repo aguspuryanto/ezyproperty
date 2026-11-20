@@ -2,10 +2,20 @@ import Link from "next/link";
 import { Search, ShieldCheck, MessageCircle, ArrowRight, Home, MapPin, KeyRound } from "lucide-react";
 import { Header } from "@/components/header";
 import { PropertyCard } from "@/components/property-card";
-import { getProperties } from "@/lib/api";
+import { Pager } from "@/components/pager";
+import { searchProperties } from "@/lib/api";
 
-export default async function HomePage() {
-  const properties = await getProperties({ limit: "6" });
+const PAGE_SIZE = 9; // 3 rows x 3 cards, same as /properti
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const params = await searchParams;
+  const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const { data: properties, pagination } = await searchProperties({ limit: String(PAGE_SIZE), page: String(page) });
+  const { total, totalPages } = pagination;
+  const from = total ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const to = Math.min(page * PAGE_SIZE, total);
+  // Keep the visitor at the listing section when paging.
+  const pageHref = (p: number) => (p > 1 ? `/?page=${p}#properti` : "/#properti");
 
   return (
     <>
@@ -41,13 +51,20 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <section id="properti" className="mx-auto max-w-7xl scroll-mt-20 px-4 py-16 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <div><p className="text-sm font-bold uppercase tracking-wider text-[#087a55]">Pilihan untukmu</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">Properti terbaru</h2><p className="mt-2 text-sm text-slate-500">Temukan properti yang sesuai dengan rencana hidupmu.</p></div>
-            <Link href="/properti" className="flex items-center gap-2 text-sm font-bold text-[#087a55] hover:underline">Lihat semua <ArrowRight size={16}/></Link>
+            <div><p className="text-sm font-bold uppercase tracking-wider text-[#087a55]">Pilihan untukmu</p><h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">Semua properti</h2><p className="mt-2 text-sm text-slate-500">{properties.length ? <>Menampilkan <b className="text-slate-700">{from}–{to}</b> dari <b className="text-slate-700">{total}</b> properti.</> : "Temukan properti yang sesuai dengan rencana hidupmu."}</p></div>
+            <Link href="/properti" className="flex items-center gap-2 text-sm font-bold text-[#087a55] hover:underline">Cari dengan filter <ArrowRight size={16}/></Link>
           </div>
           {properties.length ? (
-            <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{properties.map((property) => <PropertyCard key={property.id} property={property}/>)}</div>
+            <>
+              <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{properties.map((property) => <PropertyCard key={property.id} property={property}/>)}</div>
+              {totalPages > 1 && <Pager page={page} totalPages={totalPages} hrefFor={pageHref}/>}
+            </>
+          ) : page > 1 && total > 0 ? (
+            <div className="mt-8 rounded-2xl border border-dashed border-emerald-200 bg-white p-10 text-center">
+              <h3 className="font-bold text-slate-900">Halaman {page} tidak tersedia</h3><Link href="/#properti" className="mt-4 inline-block text-sm font-bold text-[#087a55]">Kembali ke halaman 1</Link>
+            </div>
           ) : (
             <div className="mt-8 rounded-2xl border border-dashed border-emerald-200 bg-white p-10 text-center">
               <Home className="mx-auto text-[#087a55]" size={32}/><h3 className="mt-3 font-bold text-slate-900">Listing segera hadir</h3><p className="mt-1 text-sm text-slate-500">Belum ada properti yang dipublikasikan. Agen dapat mendaftar dan mulai menambahkan listing.</p><Link href="/register" className="mt-5 inline-flex rounded-full bg-[#087a55] px-5 py-3 text-sm font-bold text-white">Daftar sebagai agen</Link>

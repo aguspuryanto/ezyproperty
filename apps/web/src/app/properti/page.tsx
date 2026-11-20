@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Header } from "@/components/header";
 import { PropertyCard } from "@/components/property-card";
 import { getCities, searchProperties } from "@/lib/api";
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Pager } from "@/components/pager";
 
 export const metadata = { title: "Cari Properti", description: "Cari rumah, apartemen, tanah, dan properti di EzyProperty." };
 
@@ -24,11 +25,17 @@ const TYPES = [
   { value: "other", label: "Lainnya" },
 ];
 
+const STATUSES = [
+  { value: "", label: "Semua" },
+  { value: "active", label: "Aktif" },
+  { value: "expired", label: "Kadaluarsa" },
+];
+
 const PRICES = [100e6, 250e6, 500e6, 750e6, 1e9, 2e9, 5e9, 10e9];
 const BEDROOMS = ["1", "2", "3", "4"];
 
 // Filter keys accepted from the URL and forwarded to the API.
-const FILTER_KEYS = ["q", "transaction", "type", "city", "minPrice", "maxPrice", "bedrooms"] as const;
+const FILTER_KEYS = ["q", "status", "transaction", "type", "city", "minPrice", "maxPrice", "bedrooms"] as const;
 type FilterKey = (typeof FILTER_KEYS)[number];
 type Filters = Partial<Record<FilterKey, string>>;
 
@@ -66,6 +73,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
 
   const activeChips: { key: FilterKey; label: string }[] = [];
   if (filters.q) activeChips.push({ key: "q", label: `"${filters.q}"` });
+  if (filters.status) activeChips.push({ key: "status", label: STATUSES.find(s => s.value === filters.status)?.label ?? filters.status });
   if (filters.transaction) activeChips.push({ key: "transaction", label: TRANSACTIONS.find(t => t.value === filters.transaction)?.label ?? filters.transaction });
   if (filters.type) activeChips.push({ key: "type", label: TYPES.find(t => t.value === filters.type)?.label ?? filters.type });
   if (filters.city) activeChips.push({ key: "city", label: filters.city });
@@ -93,6 +101,15 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
               <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 focus-within:border-[#087a55]">
                 <Search size={16} className="shrink-0 text-slate-400"/>
                 <input id="f-q" name="q" defaultValue={filters.q} placeholder="Lokasi, perumahan…" className="w-full bg-transparent py-2.5 text-sm outline-none"/>
+              </div>
+            </Field>
+
+            <Field label="Status listing">
+              <div className="grid grid-cols-3 gap-2">
+                {STATUSES.map(s => <label key={s.value || "all"} className="cursor-pointer">
+                  <input type="radio" name="status" value={s.value} defaultChecked={(filters.status ?? "") === s.value} className="peer sr-only"/>
+                  <span className="block rounded-lg border border-slate-200 px-1 py-2 text-center text-xs font-bold text-slate-600 peer-checked:border-[#087a55] peer-checked:bg-[#087a55] peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-[#087a55]/40">{s.label}</span>
+                </label>)}
               </div>
             </Field>
 
@@ -154,7 +171,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
       <section>
         <div className="flex flex-wrap items-center gap-2">
           <p className="mr-2 text-sm text-slate-500">
-            {total ? <>Menampilkan <b className="text-slate-800">{from}–{to}</b> dari <b className="text-slate-800">{total}</b> properti</> : "0 properti ditemukan"}
+            {properties.length ? <>Menampilkan <b className="text-slate-800">{from}–{to}</b> dari <b className="text-slate-800">{total}</b> properti</> : `${total} properti ditemukan`}
           </p>
           {activeChips.map(chip => <Link key={chip.key} href={hrefWith(filters, { [chip.key]: undefined, page: undefined })} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-[#087a55] hover:bg-emerald-100" aria-label={`Hapus filter ${chip.label}`}>
             {chip.label} <X size={12}/>
@@ -182,33 +199,4 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; 
       : <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>}
     {children}
   </div>;
-}
-
-/** Page numbers with ellipses: 1 … 4 5 6 … 12 */
-function pageList(page: number, totalPages: number): (number | "…")[] {
-  const pages = new Set([1, totalPages, page - 1, page, page + 1].filter(p => p >= 1 && p <= totalPages));
-  const sorted = [...pages].sort((a, b) => a - b);
-  const out: (number | "…")[] = [];
-  sorted.forEach((p, i) => {
-    if (i > 0 && p - sorted[i - 1] > 1) out.push("…");
-    out.push(p);
-  });
-  return out;
-}
-
-function Pager({ page, totalPages, hrefFor }: { page: number; totalPages: number; hrefFor: (p: number) => string }) {
-  const base = "grid h-10 min-w-10 place-items-center rounded-xl px-3 text-sm font-bold";
-  return <nav aria-label="Halaman" className="mt-10 flex flex-wrap items-center justify-center gap-2">
-    {page > 1
-      ? <Link href={hrefFor(page - 1)} className={`${base} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`} aria-label="Halaman sebelumnya"><ChevronLeft size={16}/></Link>
-      : <span className={`${base} border border-slate-100 text-slate-300`} aria-hidden><ChevronLeft size={16}/></span>}
-    {pageList(page, totalPages).map((p, i) => p === "…"
-      ? <span key={`gap-${i}`} className="px-1 text-slate-400">…</span>
-      : p === page
-        ? <span key={p} aria-current="page" className={`${base} bg-[#087a55] text-white`}>{p}</span>
-        : <Link key={p} href={hrefFor(p)} className={`${base} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`}>{p}</Link>)}
-    {page < totalPages
-      ? <Link href={hrefFor(page + 1)} className={`${base} border border-slate-200 bg-white text-slate-700 hover:bg-slate-50`} aria-label="Halaman berikutnya"><ChevronRight size={16}/></Link>
-      : <span className={`${base} border border-slate-100 text-slate-300`} aria-hidden><ChevronRight size={16}/></span>}
-  </nav>;
 }

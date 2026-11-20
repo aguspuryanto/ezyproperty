@@ -21,6 +21,7 @@ export function PropertyCard({ property }: { property: Property }) {
         <div className="relative aspect-[4/3] overflow-hidden bg-slate-100">
           <Image src={property.cover_image_url || fallback} alt={property.title} fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-105"/>
           <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-[#087a55]">{property.transaction_type === "sale" ? "Dijual" : "Disewakan"}</span>
+          {property.status === "archived" && <span className="absolute right-3 top-3 rounded-full bg-slate-900/80 px-3 py-1.5 text-xs font-bold text-white">Kadaluarsa</span>}
         </div>
         <div className="p-4">
           <p className="text-lg font-extrabold text-[#087a55]">{formatPrice(property.price, property.transaction_type)}</p>
