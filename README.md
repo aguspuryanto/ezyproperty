@@ -29,6 +29,7 @@ Register using the website. Supabase Auth creates the user; the app creates the 
 ## Deployment
 - Vercel: [docs/DEPLOY-VERCEL.md](docs/DEPLOY-VERCEL.md)
 - VPS and cPanel shared hosting: [docs/DEPLOY.md](docs/DEPLOY.md)
+- Migrating off Supabase to Google Cloud: [docs/MIGRATE-SUPABASE-TO-GCP.md](docs/MIGRATE-SUPABASE-TO-GCP.md)
 
 ## Important production notes
 - Keep `SUPABASE_SERVICE_ROLE_KEY` only in the API server environment.
