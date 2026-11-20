@@ -11,7 +11,10 @@ async function getProperty(slug: string) {
     if (!res.ok) return null;
     const json = await res.json();
     return json.data;
-  } catch { return null; }
+  } catch (error) {
+    console.error(`[getProperty] API tidak bisa dihubungi di ${API}. Pastikan apps/api berjalan.`, error);
+    return null;
+  }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{slug:string}> }): Promise<Metadata> {

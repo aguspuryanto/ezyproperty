@@ -13,6 +13,7 @@ const querySchema = z.object({
   city: z.string().optional(),
   minPrice: z.coerce.number().nonnegative().optional(),
   maxPrice: z.coerce.number().nonnegative().optional(),
+  bedrooms: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(48).default(12),
   page: z.coerce.number().int().min(1).default(1)
 });
@@ -31,15 +32,45 @@ properties.get("/", zValidator("query", querySchema), async (c) => {
   if (f.city) query = query.ilike("city_name", `%${f.city}%`);
   if (f.minPrice !== undefined) query = query.gte("price", f.minPrice);
   if (f.maxPrice !== undefined) query = query.lte("price", f.maxPrice);
+  if (f.bedrooms !== undefined) query = query.gte("bedrooms", f.bedrooms);
   if (f.q) query = query.textSearch("search_vector", f.q, { type: "websearch", config: "simple" });
 
   const { data, error, count } = await query;
+  // PGRST103 = requested page is past the end: return an empty page, not a server error.
+  if (error && error.code === "PGRST103") {
+    const { count: total } = await query.range(0, 0);
+    return c.json({
+      success: true,
+      data: [],
+      pagination: { page: f.page, limit: f.limit, total: total ?? 0, totalPages: Math.ceil((total ?? 0) / f.limit) }
+    });
+  }
   if (error) return c.json({ success: false, error: error.message }, 500);
   return c.json({
     success: true,
     data: data ?? [],
     pagination: { page: f.page, limit: f.limit, total: count ?? 0, totalPages: Math.ceil((count ?? 0) / f.limit) }
   });
+});
+
+// Cities that have published listings, with counts (for the search filter).
+// Must be registered before "/:slug".
+properties.get("/cities", async (c) => {
+  const { data, error } = await publicSupabase.from("properties")
+    .select("city_name")
+    .eq("status", "published")
+    .limit(5000);
+  if (error) return c.json({ success: false, error: error.message }, 500);
+
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const city = row.city_name?.trim();
+    if (city) counts.set(city, (counts.get(city) ?? 0) + 1);
+  }
+  const cities = [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name, "id"));
+  return c.json({ success: true, data: cities });
 });
 
 properties.get("/:slug", async (c) => {
@@ -80,6 +111,13 @@ const createSchema = z.object({
 properties.post("/", requireAuth, zValidator("json", createSchema), async (c) => {
   const user = c.get("user");
   const body = c.req.valid("json");
+  // Agent profiles are created lazily (no trigger on the shared auth.users table).
+  const { error: profileError } = await adminSupabase.from("profiles").upsert(
+    { id: user.id, email: user.email },
+    { onConflict: "id", ignoreDuplicates: true }
+  );
+  if (profileError) return c.json({ success: false, error: profileError.message }, 500);
+
   const slug = `${body.title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${crypto.randomUUID().slice(0, 8)}`;
 
   const { data, error } = await adminSupabase.from("properties").insert({

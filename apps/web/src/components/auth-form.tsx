@@ -25,7 +25,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       const fullName = String(form.get("fullName"));
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: { data: { full_name: fullName, role: "agent" } }
+        options: { data: { full_name: fullName } }
       });
       if (error) setError(error.message);
       else if (data.session) router.push("/dashboard");

@@ -5,7 +5,7 @@ import type { Property } from "@/lib/api";
 
 const fallback = "https://images.unsplash.com/photo-1600597203089-9f7e9a7f1c5d?w=900&q=80";
 
-function formatPrice(price: number, transaction: string) {
+export function formatPrice(price: number, transaction: string) {
   // Gunakan formatter deterministik tanpa locale agar tidak terjadi
   // hydration mismatch antara Node.js server dan browser.
   const parts = Math.round(price).toString().split("").reverse();
