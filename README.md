@@ -19,12 +19,15 @@ Web: http://localhost:3000
 API: http://localhost:4000/api/v1/health
 
 ## First agent account
-Register using the website. Supabase Auth creates the user; a database trigger creates a `profiles` row with role `agent`. Public registration is intentionally limited to agent accounts for this MVP. Configure email confirmation in Supabase Auth as desired.
+Register using the website. Supabase Auth creates the user; the app creates the agent row in `ezy.profiles` on first dashboard visit (no trigger on `auth.users`, because the Supabase project is shared with another app — all EzyProperty tables live in schema `ezy`). Public registration is intentionally limited to agent accounts for this MVP. Configure email confirmation in Supabase Auth as desired.
 
 ## Architecture
 - `apps/web`: Next.js App Router, public SEO pages, Supabase browser/server clients.
 - `apps/api`: Hono REST API. Public listing reads use the anon key; protected operations verify Supabase JWT and use the service role only after authorization.
 - `supabase/migrations`: schema, indexes, RLS, and seed data.
+
+## Deployment
+See [docs/DEPLOY.md](docs/DEPLOY.md) (VPS and cPanel shared hosting).
 
 ## Important production notes
 - Keep `SUPABASE_SERVICE_ROLE_KEY` only in the API server environment.

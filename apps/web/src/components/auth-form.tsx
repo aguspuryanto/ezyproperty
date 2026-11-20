@@ -25,7 +25,9 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       const fullName = String(form.get("fullName"));
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: { data: { full_name: fullName } }
+        // The Supabase project is shared with another app, so its "Site URL" is not ours:
+        // always send the confirmation link back to this site.
+        options: { data: { full_name: fullName }, emailRedirectTo: `${window.location.origin}/login` }
       });
       if (error) setError(error.message);
       else if (data.session) router.push("/dashboard");
