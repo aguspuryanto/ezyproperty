@@ -27,7 +27,8 @@ Register using the website. Supabase Auth creates the user; the app creates the 
 - `supabase/migrations`: schema, indexes, RLS, and seed data.
 
 ## Deployment
-See [docs/DEPLOY.md](docs/DEPLOY.md) (VPS and cPanel shared hosting).
+- Vercel: [docs/DEPLOY-VERCEL.md](docs/DEPLOY-VERCEL.md)
+- VPS and cPanel shared hosting: [docs/DEPLOY.md](docs/DEPLOY.md)
 
 ## Important production notes
 - Keep `SUPABASE_SERVICE_ROLE_KEY` only in the API server environment.

@@ -24,6 +24,12 @@ app.onError((error, c) => {
   return c.json({ success: false, error: "Internal server error" }, 500);
 });
 
-serve({ fetch: app.fetch, port: env.port }, (info) => {
-  console.log(`EzyProperty API listening on http://localhost:${info.port}`);
-});
+// On Vercel the exported app is invoked as a function (zero-config Hono); elsewhere
+// (local dev, VPS, cPanel) we start a regular Node.js HTTP server.
+if (!process.env.VERCEL) {
+  serve({ fetch: app.fetch, port: env.port }, (info) => {
+    console.log(`EzyProperty API listening on http://localhost:${info.port}`);
+  });
+}
+
+export default app;

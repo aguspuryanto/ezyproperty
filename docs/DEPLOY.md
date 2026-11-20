@@ -1,5 +1,7 @@
 # Panduan Deploy EzyProperty (tanpa Vercel)
 
+> Untuk deploy ke Vercel, lihat [DEPLOY-VERCEL.md](DEPLOY-VERCEL.md).
+
 EzyProperty terdiri dari tiga bagian:
 
 | Bagian | Teknologi | Butuh apa di server |
