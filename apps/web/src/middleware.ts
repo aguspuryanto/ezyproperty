@@ -30,5 +30,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Vercel Services does not support Edge Functions; run middleware on Node.js (stable since Next 15.5).
+  runtime: "nodejs",
   matcher: ["/dashboard/:path*"]
 };
