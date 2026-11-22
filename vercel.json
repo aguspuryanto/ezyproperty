@@ -3,7 +3,8 @@
     "services": {
         "api": {
             "root": "apps/api",
-            "framework": "hono"
+            "framework": "hono",
+            "entrypoint": "dist/vercel.mjs"
         },
         "web": {
             "root": "apps/web",
