@@ -4,7 +4,7 @@
         "api": {
             "root": "apps/api",
             "framework": "hono",
-            "entrypoint": "dist/vercel.mjs"
+            "entrypoint": "vercel-entry.mjs"
         },
         "web": {
             "root": "apps/web",
